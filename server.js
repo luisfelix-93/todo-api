@@ -1,8 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-
+const JiraApi = require('jira-connector');
 const app = express();
+const jira = new JiraApi({
+  host: 'code7',
+  basic_auth: {
+    username: 'luis.ffilho@code7.com',
+    password: 'Luisf@123'
+  }
+});
 const PORT = 3001;
 
 //Configurar o middleware para lidar com requisições JSON
@@ -29,10 +36,10 @@ const jiraRedirectUri = 'http://localhost:3000/api/callback'; // URL de redireci
 //Definir o modelo de dados do ToDo
 const todoSchema = new mongoose.Schema({
   text: String,
-  date: String,
+  date: Date,
   startTime: String,
-  endTime: String,
-  notes: String
+  timeSpent: String,
+  notes: String,
 });
 
 const tokenSchema = new mongoose.Schema({
@@ -131,7 +138,7 @@ app.post('/api/post-todos', async (req, res) => {
     await newTodo.save();
     res.status(201).json(newTodo);
   } catch (error) {
-    res.status(500).json({ error: 'Ocorreu um erro ao criar o todo' });
+    res.status(500).json({ error: 'Ocorreu um erro ao criar o todo', error });
   }
 });
 
@@ -156,6 +163,29 @@ app.delete('/api/delete-todos/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Ocorreu um erro ao excluir o todo' });
   }
+});
+
+app.get('/api/get-todo-by-data', async(req, res) =>{
+  const date = req.query;
+  try{
+    const todo = await Todo.find({date: new Date(date)});
+    res.status(200).json({success: true, todo});
+  } catch(error){
+    res.status(500).send('Problema ao procurar tarefa no banco de dados');
+    console.log(error);
+  }
+});
+
+app.get('/api/get-worklog', async(req, res) => {
+  const issueKey = req.params.issueKey;
+  jira.issue.getWorkLogs({ issueKey: issueKey }, (error, worklogs) => {
+    if (error) {
+      console.log(error);
+      res.status(500).send('Error fetching worklogs');
+    } else {
+      res.send(worklogs);
+    }
+  });
 });
 
 // Iniciar o servidor
